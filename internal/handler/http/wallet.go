@@ -6,17 +6,20 @@ import (
 
 	"github.com/AntonioForYou/wallet-api/internal/domain"
 	"github.com/AntonioForYou/wallet-api/internal/repository/postgres"
-	"github.com/AntonioForYou/wallet-api/internal/worker"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
+type JobDispatcher interface {
+	Dispatch(job domain.Job)
+}
+
 type Handler struct {
-	pool *worker.Pool
+	pool JobDispatcher
 	repo domain.WalletRepository
 }
 
-func NewHandler(pool *worker.Pool, repo domain.WalletRepository) *Handler {
+func NewHandler(pool JobDispatcher, repo domain.WalletRepository) *Handler {
 	return &Handler{
 		pool: pool,
 		repo: repo,
