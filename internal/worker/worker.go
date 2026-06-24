@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/AntonioForYou/wallet-api/internal/domain"
@@ -37,15 +38,26 @@ func (w *Worker) Start(ctx context.Context) {
 }
 
 func (w *Worker) processJob(job domain.Job) {
-	amount := job.Amount
-	if job.OperationType == domain.Withdraw {
-		amount = -amount
+	var amount int64
+
+	switch job.OperationType {
+	case domain.Deposit:
+		amount = job.Amount
+	case domain.Withdraw:
+		amount = -job.Amount
+	default:
+		w.sendResult(job, domain.Result{Err: errors.New("unknown operation type")})
+		return
 	}
 
 	newBalance, err := w.repo.UpdateBalance(job.Ctx, job.WalletID, amount)
 
+	w.sendResult(job, domain.Result{NewBalance: newBalance, Err: err})
+}
+
+func (w *Worker) sendResult(job domain.Job, result domain.Result) {
 	select {
-	case job.ResultChan <- domain.Result{NewBalance: newBalance, Err: err}:
+	case job.ResultChan <- result:
 	case <-job.Ctx.Done():
 		log.Printf("Worker %d: client disconnected or timeout for wallet %s\n", w.id, job.WalletID)
 	}
